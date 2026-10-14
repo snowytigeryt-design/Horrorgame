@@ -252,6 +252,11 @@ async function onMessage(c, m) {
       })().catch(logErr);
       break;
     }
+    case 'saved': { /* the Saint's medal turned a death into a second chance: tell the others this player is alive again */
+      if (!r || r.state !== 'playing') return;
+      relay(r, c, { t: 'respawn', id: c.pid });
+      break;
+    }
     case 'say': {
       if (!r) return;
       const k = Math.floor(num(m.k, 0, 2));

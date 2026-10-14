@@ -1,12 +1,12 @@
 'use strict';
-/* LEVEL 2, part A: "Ward 9". Cave-like flesh ward: map generation, textures, world building.
+/* LEVEL 2, part A: "Ward 9". A maze of living flesh: map generation, textures, world building.
    Runs after the main game script, which exposes window.HW. Shares state through window.HW2. */
 (function () {
   const H = window.HW;
   if (!H || !window.THREE) return;
   const THREE = window.THREE, L = (window.HW2 = window.HW2 || {});
   const rnd = H.rnd, ri = H.ri, pick = H.pick, clamp = H.clamp, mkCanvas = H.mkCanvas, mkTex = H.mkTex, speckle = H.speckle;
-  const T = 4, N = 48, ROOF = 7.6;
+  const T = 4, N = 45, ROOF = 5.4;
   const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
   Object.assign(L, { T: T, N: N, ROOF: ROOF, DIRS: DIRS, g: null, open: [], solids: [], world: null, extraLights: [], cabinets: [], roots: [], pods: [], exitObj: null, tex: null });
 
@@ -65,59 +65,28 @@
     return best;
   };
 
-  /* ---------- map ---------- */
+  /* ---------- map: a real maze (depth-first corridors, a few loops, a few open rooms to be cornered in) ---------- */
   function genCave() {
-    let g = [];
-    for (let y = 0; y < N; y++) { const r = []; for (let x = 0; x < N; x++) r.push((x < 2 || y < 2 || x >= N - 2 || y >= N - 2) ? 1 : (Math.random() < 0.43 ? 1 : 0)); g.push(r); }
-    for (let it = 0; it < 4; it++) {
-      const n = [];
-      for (let y = 0; y < N; y++) {
-        const r = [];
-        for (let x = 0; x < N; x++) {
-          if (x < 2 || y < 2 || x >= N - 2 || y >= N - 2) { r.push(1); continue; }
-          let c = 0;
-          for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) c += g[y + dy][x + dx];
-          r.push(c >= 5 ? 1 : 0);
-        }
-        n.push(r);
-      }
-      g = n;
+    const g = Array.from({ length: N }, () => new Array(N).fill(1));
+    const st = [[1, 1]]; g[1][1] = 0;
+    while (st.length) {
+      const c = st[st.length - 1], opts = [];
+      for (const d of DIRS) { const nx = c[0] + d[0] * 2, ny = c[1] + d[1] * 2; if (nx > 0 && ny > 0 && nx < N - 1 && ny < N - 1 && g[ny][nx] === 1) opts.push([nx, ny, d]); }
+      if (!opts.length) { st.pop(); continue; }
+      const o = pick(opts); g[c[1] + o[2][1]][c[0] + o[2][0]] = 0; g[o[1]][o[0]] = 0; st.push([o[0], o[1]]);
     }
-    const circle = (cx, cy, r) => {
-      for (let y = cy - r; y <= cy + r; y++) for (let x = cx - r; x <= cx + r; x++) {
-        if (x < 2 || y < 2 || x >= N - 2 || y >= N - 2) continue;
-        if ((x - cx) * (x - cx) + (y - cy) * (y - cy) <= r * r + 0.5) g[y][x] = 0;
-      }
-    };
-    const walk = (a, b) => {
-      let x = a[0], y = a[1], steps = 0;
-      while ((x !== b[0] || y !== b[1]) && steps++ < 4000) {
-        circle(x, y, 1);
-        if (Math.random() < 0.7) {
-          const dx = b[0] - x, dy = b[1] - y;
-          if (Math.abs(dx) > Math.abs(dy) || (Math.abs(dx) === Math.abs(dy) && Math.random() < 0.5)) x += Math.sign(dx); else y += Math.sign(dy);
-        } else { const d = pick(DIRS); x = clamp(x + d[0], 3, N - 4); y = clamp(y + d[1], 3, N - 4); }
-      }
-    };
-    const start = [6, 6], exit = [N - 7, N - 7];
-    const roots = [[N - 11, 11], [N >> 1, N >> 1], [11, N - 11]];
-    for (const b of roots) { b[0] += ri(-3, 3); b[1] += ri(-3, 3); }
-    if (Math.random() < 0.5) { const tmp = roots[0]; roots[0] = roots[2]; roots[2] = tmp; }
-    circle(start[0], start[1], 4); circle(exit[0], exit[1], 4);
-    roots.forEach((b) => circle(b[0], b[1], 3));
-    for (let i = 0; i < 6; i++) circle(ri(6, N - 7), ri(6, N - 7), 2);
-    walk(start, roots[0]); walk(roots[0], roots[1]); walk(roots[1], roots[2]); walk(roots[2], exit);
-    if (Math.random() < 0.6) walk(roots[0], exit);
-    if (Math.random() < 0.6) walk(start, roots[1]);
-    /* drop every pocket that cannot be reached from the start */
-    const seen = new Uint8Array(N * N), q = [start[1] * N + start[0]];
-    seen[q[0]] = 1;
-    for (let h = 0; h < q.length; h++) {
-      const cx = q[h] % N, cy = (q[h] / N) | 0;
-      for (const d of DIRS) { const nx = cx + d[0], ny = cy + d[1]; if (nx < 0 || ny < 0 || nx >= N || ny >= N || g[ny][nx] === 1 || seen[ny * N + nx]) continue; seen[ny * N + nx] = 1; q.push(ny * N + nx); }
+    for (let y = 1; y < N - 1; y++) for (let x = 1; x < N - 1; x++) {
+      if (g[y][x] !== 1 || ((x % 2 === 0) === (y % 2 === 0))) continue;
+      const a = (x % 2 === 0) ? [g[y][x - 1], g[y][x + 1]] : [g[y - 1][x], g[y + 1][x]];
+      if (a[0] === 0 && a[1] === 0 && Math.random() < 0.18) g[y][x] = 0;
     }
-    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (g[y][x] === 0 && !seen[y * N + x]) g[y][x] = 1;
-    return { g: g, start: start, exit: exit, roots: roots };
+    const cells = (N - 1) / 2;
+    for (let k = 0; k < 6; k++) {
+      const cx = 1 + 2 * ri(0, cells - 1), cy = 1 + 2 * ri(0, cells - 1);
+      if (cx + cy < 10 || cx + cy > 2 * N - 12) continue; /* keep the entrance and the exit as corridors */
+      for (let yy = cy - 1; yy <= cy + 1; yy++) for (let xx = cx - 1; xx <= cx + 1; xx++) { if (xx > 0 && yy > 0 && xx < N - 1 && yy < N - 1) g[yy][xx] = 0; }
+    }
+    return { g: g, start: [1, 1], exit: [N - 2, N - 2], roots: [] };
   }
 
   /* ---------- textures: dark flesh, glowing veins ---------- */
@@ -304,36 +273,44 @@
       L.pods.push({ x: x, y: y, z: z, color: podCols[kind], sprite: sp, ph: Math.random() * 6.28 });
     }
 
-    /* cabinets: scattered along the walls, away from the entrance room */
+    /* cabinets along the walls. Three hold the ward keys, spread far apart. The rest hold side-quest scrap and wire,
+       supplies, or a nasty surprise. */
     const startDm = L.distMap(gen.start[0], gen.start[1]);
+    const cand = L.open.filter((t) => startDm[t[1] * N + t[0]] >= 6 && sidesOf(t[0], t[1]).length > 0 && !(t[0] >= N - 5 && t[1] >= N - 5));
+    const placed = [], WANT = 28;
+    for (let tries = 0; tries < 5000 && placed.length < WANT && cand.length; tries++) {
+      const t = pick(cand), sep = tries > 2500 ? 2 : 4;
+      if (placed.some((p) => Math.abs(p[0] - t[0]) + Math.abs(p[1] - t[1]) < sep)) continue;
+      placed.push(t);
+    }
+    const keyIdx = [], anchors = [gen.start];
+    for (let k = 0; k < 3 && placed.length > 3; k++) {
+      let best = -1, bs = -1;
+      for (let i = 0; i < placed.length; i++) {
+        if (keyIdx.indexOf(i) >= 0) continue;
+        let md = 1e9; for (const a of anchors) md = Math.min(md, Math.abs(a[0] - placed[i][0]) + Math.abs(a[1] - placed[i][1]));
+        const sc = Math.min(md, 26) + Math.random() * 8;
+        if (sc > bs) { bs = sc; best = i; }
+      }
+      keyIdx.push(best); anchors.push(placed[best]);
+    }
     const loot = [];
-    for (let i = 0; i < 6; i++) loot.push('metal');
-    for (let i = 0; i < 5; i++) loot.push('wire');
-    for (let i = 0; i < 3; i++) loot.push('medkit');
-    for (let i = 0; i < 2; i++) loot.push('battery');
-    for (let i = 0; i < 2; i++) loot.push('trap');
-    for (let i = 0; i < 4; i++) loot.push('empty');
+    for (let i = 0; i < 5; i++) loot.push('metal');
+    for (let i = 0; i < 4; i++) loot.push('wire');
+    for (let i = 0; i < 4; i++) loot.push('medkit');
+    for (let i = 0; i < 3; i++) loot.push('battery');
+    for (let i = 0; i < 3; i++) loot.push('trap');
+    while (loot.length < placed.length - 3) loot.push('empty');
     for (let i = loot.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0, t = loot[i]; loot[i] = loot[j]; loot[j] = t; }
-    const cand = L.open.filter((t) => startDm[t[1] * N + t[0]] >= 9 && sidesOf(t[0], t[1]).length > 0);
-    const placed = [];
-    for (let tries = 0; tries < 3000 && L.cabinets.length < loot.length && cand.length; tries++) {
-      const t = pick(cand);
-      if (placed.some((p) => Math.abs(p[0] - t[0]) + Math.abs(p[1] - t[1]) < (tries > 1500 ? 3 : 6))) continue;
+    let li = 0;
+    placed.forEach((t, i) => {
       const d = pick(sidesOf(t[0], t[1])), p = placeAt(t[0], t[1], d, 0.6);
       const cab = makeCabinet(Math.random() < 0.4); cab.position.set(p.x, 0, p.z); cab.rotation.y = p.rot; grp.add(cab);
       addSolid(p, d, 0.9, 0.6);
-      placed.push(t);
-      L.cabinets.push({ x: p.x, z: p.z, fx: -d[0], fz: -d[1], loot: loot[L.cabinets.length], opened: false, mesh: cab });
-    }
-
-    /* the three roots */
-    L.rootTiles.forEach((t, i) => {
-      const g = makeRoot(); g.position.set(t[0] * T, 0, t[1] * T); grp.add(g);
-      L.solids.push({ x: t[0] * T, z: t[1] * T, hx: 1.0, hz: 1.0 });
-      L.roots.push({ x: t[0] * T, z: t[1] * T, hp: 10, max: 10, g: g, dead: false, hitT: 0, ph: i * 2 });
+      L.cabinets.push({ x: p.x, z: p.z, fx: -d[0], fz: -d[1], loot: keyIdx.indexOf(i) >= 0 ? 'key' : (loot[li++] || 'empty'), opened: false, mesh: cab });
     });
 
-    /* the rift: dormant until the roots are cut */
+    /* the way out: a rift that stays dormant until all three keys are found */
     const ex = gen.exit[0] * T, ez = gen.exit[1] * T;
     const pg = new THREE.Group(); pg.position.set(ex, 2.1, ez); grp.add(pg);
     const ring = new THREE.Mesh(new THREE.TorusGeometry(1.9, 0.14, 8, 40), new THREE.MeshStandardMaterial({ color: 0x2a1a22, emissive: 0x000000, roughness: 0.6 }));
@@ -345,8 +322,8 @@
 
     /* the steel door you came through */
     const door = new THREE.Mesh(new THREE.BoxGeometry(0.2, 3.2, 3.9), new THREE.MeshStandardMaterial({ color: 0x2a2c2e, metalness: 0.5, roughness: 0.6 }));
-    door.position.set(2 * T - T / 2 + 0.1, 1.6, gen.start[1] * T); grp.add(door);
-    L.startPos = { x: 2 * T + 1.6, z: gen.start[1] * T, yaw: -Math.PI / 2 };
+    door.position.set(T / 2 + 0.1, 1.6, gen.start[1] * T); grp.add(door);
+    L.startPos = { x: T + 0.5, z: gen.start[1] * T, yaw: -Math.PI / 2 };
 
     /* floating spores around the camera */
     const SP = 380, pos = new Float32Array(SP * 3);

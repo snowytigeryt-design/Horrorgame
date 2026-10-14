@@ -83,23 +83,40 @@ lie about their own position. This is a friends game, not a competitive one.
 - If the same player id joins from a second tab while in a room, the session moves to the new tab and the
   old tab is told it was signed in elsewhere (it does not fight to reconnect).
 
-## Level 2: Ward 9
+## Level 2: Ward 9 (the maze)
 
-Escaping through the east door no longer ends the game. You step through into **Ward 9**, where the patients who
-never got out are still awake. It is a separate level (files `public/level2a.js` to `level2e.js`) that hooks into
-the main game through `window.HW`. If those files are missing, the game falls back to the original ending.
+Escaping through the east door no longer ends the game. You step through into **Ward 9**, a maze of living flesh where
+the patients who never got out are awake, crazed, and hunting you. It is a separate level (files `public/level2a.js` to
+`level2e.js`) that hooks into the main game through `window.HW`. If those files are missing, the game falls back to the
+original ending.
 
-- **Look:** a fresh cave-like map every run, dark flesh walls with glowing veins, coloured glowing pods as the only
-  light besides your flashlight, drifting spores. Nothing is shared with level 1's look.
-- **Goal:** search the cabinets along the walls for **4 scrap metal** and **3 wire**, hold still and press **R** to forge
-  a blade, then **click** to stab. Cut out the **three hearts** that feed the ward (each takes 10 stabs and calls
-  more patients), then run to the **rift** that opens. A compass arrow points to the nearest heart, then the rift.
-- **Cabinets** can also hold bandages (+40 health), batteries, or a nasty surprise. Searching is loud.
-- **The Unwell** (none are level 1 monsters): *Patients* (3 stabs, shamble then sprint), *Howlers* (fast, frail, their
-  scream calls everyone), *Lurchers* (huge, 7 stabs, hit very hard). New ones keep arriving.
-- **The Keeper** (boss): a clock chimes, then it sometimes manifests and hunts you. If it sees you it **mind flays**:
-  slows you, drags you toward it, drains health. Break line of sight or stab it to interrupt. It blinks closer when it
-  loses you, and the last heart always summons it. It can be killed; it comes back stronger.
+- **Goal:** escape. The maze is new every run. Find the **three ward keys** (each is in one of the cabinets along the
+  walls, spread far apart, and the arrow points at the nearest one), then run to the **rift** at the far corner. Each key
+  you find echoes through the maze and brings more of them.
+- **Cabinets** can also hold bandages (+40 health, and they ease the sickness), batteries, scrap metal, wire, or a nasty
+  surprise. Searching is loud.
+- **Side quest (optional):** with 4 scrap metal and 3 wire, hold still and press **R** to forge a blade, then **click** to
+  stab. It lets you put the small ones down. You never need it to get out.
+- **The crazed:** *Patients* (shamble, then sprint), *Maniacs* (fast, cackling, cleavers), *Howlers* (fast, frail, their scream
+  calls everyone), *Lurchers* (huge, hit very hard). New ones keep arriving. Break line of sight and they lose you.
+- **The Keeper** (boss): a clock chimes, then it sometimes manifests and hunts you. If it sees you it **mind flays**: slows
+  you, drags you toward it, drains health. Break line of sight to interrupt. It can be killed with a blade; it comes back stronger.
 - **Health:** you have 100, no regeneration. Bandages from cabinets are the only healing.
-- **Co-op:** each player plays Ward 9 on their own copy of the level after they escape (players are not shown to each
-  other in Ward 9). Your co-op room and connection stay alive during it.
+- **Co-op:** each player plays Ward 9 on their own copy of the level after they escape.
+
+## Changes in this version
+
+- **Sprint lasts about twice as long** and recovers faster, in both levels.
+- **The Saint's medal (level 1):** one per run, hidden in the farthest dead end of the maze. Nothing points to it. It glows
+  faintly and chimes when you are close. Take it with **E**. The next time you would die, from anything (the stalker,
+  the spider, the big one, a locker), the medal burns up, you survive, and whatever had you is thrown far away. In
+  co-op it only saves the player holding it.
+- **The spider is a little slower**, so a clean run can outpace it.
+- **Fake safety:** a calm "Game saved" icon appears in the corner. A moment after it fades, something is sprung on you
+  (a creature bursts from the floor or wall in level 1, a pack lunges out of the next corridor in level 2). It happens
+  a handful of times a run, never while you are already being chased or hiding.
+- **Sickness (both levels), file `public/dread.js`:** it builds through the run in waves. First your view sways and
+  blurs. Then you cough up blood: the screen spatters, drops hit the floor and stay there, the cough is loud (enemies hear
+  it) and slows you. Paranoia adds footsteps behind you, whispers at your ear and a figure that is gone when you look.
+  Past a point the lights cycle through every colour. Hiding in a locker eases it, and bandages in level 2 ease it.
+  The "Reduce flashing and shake" box halves all of it and slows the colour change.

@@ -1,6 +1,7 @@
 'use strict';
-/* LEVEL 2, part B: "The Unwell". The patients who never got out. Three kinds, all new (none are level 1 monsters).
-   patient: shambling, takes 3 stabs.  howler: frail but fast, its scream calls everyone.  lurcher: huge, slow, hits like a truck. */
+/* LEVEL 2, part B: "The Unwell". The crazed patients of Ward 9. They are not here to be fought: they hunt, you run.
+   patient: shambling.  maniac: fast, cackling, cleaver.  howler: frail but fast, its scream calls everyone.  lurcher: huge, slow, hits like a truck.
+   (With a forged blade you can put the small ones down, but that is a side quest, not the way out.) */
 (function () {
   const H = window.HW, L = window.HW2;
   if (!H || !L || !L.build) return;
@@ -8,6 +9,7 @@
   const KINDS = {
     patient: { hp: 3, wander: 1.1, chase: 3.5, dmg: 14, reach: 1.3, cd: 1.0, sight: 15, size: 1.0 },
     howler: { hp: 1, wander: 1.5, chase: 4.3, dmg: 9, reach: 1.2, cd: 0.85, sight: 20, size: 1.05 },
+    maniac: { hp: 2, wander: 1.4, chase: 4.3, dmg: 17, reach: 1.3, cd: 0.9, sight: 18, size: 1.0 },
     lurcher: { hp: 7, wander: 0.9, chase: 3.0, dmg: 30, reach: 1.7, cd: 1.5, sight: 13, size: 1.5 }
   };
   L.KINDS = KINDS; L.enemies = []; L.noiseR = 0; L.pdm = new Int16Array(N * N); L.pdmTile = -1; L.alertInfo = null;
@@ -74,14 +76,20 @@
         for (const y of [0.5, 0.62]) part(G.box, E.belt, 0.6 * s, 0.035, 0.24, 0, y, 0.2, torso);
         armL.visible = armR.visible = false; g.userData.jacket = true;
       }
+      if (kind === 'maniac') {
+        part(G.box, E.apron, 0.42 * s, 0.5, 0.06, 0, 0.5 * tall, 0.15, torso);
+        const bl = part(G.box, E.steel, 0.02, 0.36, 0.11, 0, -0.78, 0.05, armR); bl.rotation.x = 0.1;
+        part(G.box, E.apron, 0.022, 0.12, 0.112, 0, -0.62, 0.05, armR);
+      }
       const head = new THREE.Group(); head.position.y = 1.0 * tall; torso.add(head);
       part(G.sph, E.skin, 0.16, 0.2, 0.17, 0, 0.12, 0, head);
+      if (kind === 'maniac') part(G.box, E.black, 0.12, 0.018, 0.02, 0, 0.03, 0.165, head);
       if (kind === 'howler') { part(G.sph, E.black, 0.09, 0.16, 0.06, 0, 0.0, 0.14, head); head.rotation.x = -0.5; }
       else { part(G.sph, E.black, 0.05, 0.03, 0.02, 0, 0.0, 0.16, head); const b = part(G.tor, E.band, 0.17, 0.17, 0.17, 0, 0.17, 0, head); b.rotation.x = Math.PI / 2 + 0.2; }
       part(G.sph, E.black, 0.04, 0.05, 0.03, -0.065, 0.14, 0.15, head); part(G.sph, E.black, 0.04, 0.05, 0.03, 0.065, 0.14, 0.15, head);
       g.userData = Object.assign(g.userData || {}, { legL, legR, armL, armR, head, torso, eyeY: 1.75 * tall });
     }
-    const gl = new THREE.Sprite(new THREE.SpriteMaterial({ map: H.TEX.glow, color: kind === 'howler' ? 0xffe9a0 : 0xdfe8ff, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.55, fog: false }));
+    const gl = new THREE.Sprite(new THREE.SpriteMaterial({ map: H.TEX.glow, color: kind === 'howler' ? 0xffe9a0 : (kind === 'maniac' ? 0xff6a50 : 0xdfe8ff), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.55, fog: false }));
     gl.scale.set(0.45 * s, 0.45 * s, 1); gl.position.set(0, g.userData.eyeY, 0.12); g.add(gl); g.userData.glow = gl;
     return g;
   }
@@ -113,10 +121,10 @@
     }
     return null;
   };
-  L.populate = function (nP, nH, nL) {
+  L.populate = function (nP, nH, nL, nM) {
     L.refreshPdm(true);
     const mk = (kind, n) => { for (let i = 0; i < n; i++) { const s = L.farSpot(12); if (s) L.spawnEnemy(kind, s[0], s[1]); } };
-    mk('patient', nP); mk('howler', nH); mk('lurcher', nL);
+    mk('patient', nP); mk('maniac', nM || 0); mk('howler', nH); mk('lurcher', nL);
   };
   L.refreshPdm = function (force) {
     const p = H.player, tx = clamp(L.toTile(p.x), 0, N - 1), tz = clamp(L.toTile(p.z), 0, N - 1), id = tz * N + tx;
@@ -216,6 +224,7 @@
           if (see || (hear && d < 12)) {
             e.st = 'chase'; e.lostT = 0; e.atkT = Math.max(e.atkT, 0.4);
             if (e.kind === 'howler' && e.scream <= 0) { e.scream = 12; L.howl(e); }
+            else if (e.kind === 'maniac') { if (e.scream <= 0) { e.scream = 10; L.laugh(e); } }
             else if (e.kind !== 'howler') H.sfxScratch && H.sfxScratch([e.x, 1.4, e.z]);
           } else if (e.st === 'alert') {
             const A = L.alertInfo;
@@ -228,7 +237,7 @@
           } else {
             e.turnT -= dt; sp = K.wander;
             if (e.turnT <= 0) { e.head = e.yaw + rnd(-1.6, 1.6); e.turnT = rnd(1.5, 5); if (Math.random() < 0.25) e.turnT = rnd(0.5, 1.2), sp = 0; }
-            if (Math.random() < 0.002 && L.pdm[L.toTile(e.z) * N + L.toTile(e.x)] > 6) { const nx = L.flow(L.pdm, L.toTile(e.x), L.toTile(e.z)); if (nx) e.head = Math.atan2(nx[0] - e.x, nx[1] - e.z); } /* drift toward the player over time */
+            if (Math.random() < (e.kind === 'maniac' ? 0.008 : 0.003) && L.pdm[L.toTile(e.z) * N + L.toTile(e.x)] > 6) { const nx = L.flow(L.pdm, L.toTile(e.x), L.toTile(e.z)); if (nx) e.head = Math.atan2(nx[0] - e.x, nx[1] - e.z); } /* drift toward the player over time */
             const hx = Math.sin(e.head), hz = Math.cos(e.head);
             moving = move(e, hx, hz, sp, dt);
             if (!moving) { e.head += rnd(1.3, 2.6) * (Math.random() < 0.5 ? 1 : -1); e.turnT = rnd(0.5, 2); }
@@ -258,6 +267,9 @@
       u.glow.material.opacity = (chase ? 0.9 : 0.4) + Math.sin(H.gframe * 0.2 + e.ph) * 0.08;
       if (moving && d < 24) { e.stepT += dt * (chase ? 3.3 : 1.5); if (e.stepT >= 1) { e.stepT = 0; H.noiseBurst({ dur: 0.1, f: e.kind === 'lurcher' ? 160 : 300, gain: e.kind === 'lurcher' ? 0.5 : 0.22, pos: [e.x, 0.2, e.z], rev: 0.4 }); } }
     }
+  };
+  L.laugh = function (e) {
+    for (let i = 0; i < 6; i++) H.tone({ type: 'sawtooth', f: (i % 2 ? 340 : 430) + Math.random() * 40, f2: 210 + Math.random() * 40, dur: 0.12, gain: 0.14, delay: i * 0.17, pos: [e.x, 1.6, e.z], rev: 0.5 });
   };
   /* the howler's scream: everyone nearby comes running to the player's position */
   L.howl = function (e) {

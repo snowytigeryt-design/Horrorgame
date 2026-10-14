@@ -1,6 +1,6 @@
 'use strict';
 /* LEVEL 2, part D: everything you see and hear around the gameplay: HUD panel, title card, screen effects,
-   ambient sound, the knife you hold, and the coloured lights that follow you through the ward. */
+   ambient sound, the blade you may forge (side quest), and the coloured lights that follow you through the maze. */
 (function () {
   const H = window.HW, L = window.HW2;
   if (!H || !L || !L.boss) return;
@@ -13,7 +13,7 @@
     '#l2hud .t{font-family:"IM Fell English SC",Georgia,serif;font-size:20px;color:#d85a6a;letter-spacing:.14em;margin-bottom:6px}' +
     '#l2hud .r{display:flex;justify-content:space-between;gap:14px;margin-top:3px}#l2hud .r b{font-weight:400;color:var(--amber);letter-spacing:.08em}#l2hud .r b.ok{color:#6fd08a}' +
     '#l2hud .hb{height:6px;background:rgba(255,255,255,.1);margin:4px 0 6px}#l2hud .hb i{display:block;height:100%;width:100%;background:#b8283a;transition:width .15s}#l2hud .hb i.low{background:#ff3a4a;animation:l2p .6s infinite}' +
-    '@keyframes l2p{50%{opacity:.45}}#l2goal{margin-top:8px;text-transform:none;letter-spacing:.05em;font-size:13px;max-width:22rem;color:#b9aeb0;line-height:1.4}' +
+    '#l2hud .side{margin-top:10px;font-size:10px;letter-spacing:.18em;color:#7d7476}@keyframes l2p{50%{opacity:.45}}#l2goal{margin-top:8px;text-transform:none;letter-spacing:.05em;font-size:13px;max-width:22rem;color:#b9aeb0;line-height:1.4}' +
     '#l2bossbar{position:absolute;left:50%;top:14px;transform:translateX(-50%);width:min(26rem,70%);text-align:center;font-size:11px;letter-spacing:.3em;color:#d86a50;text-transform:uppercase;text-shadow:0 0 6px #000}' +
     '#l2bossbar div{height:5px;background:rgba(255,255,255,.1);margin-top:4px}#l2bossbar i{display:block;height:100%;background:#d8452a;width:100%}' +
     '#l2title{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#000;opacity:0;pointer-events:none;transition:opacity 1.6s;text-align:center;padding:16px}' +
@@ -23,8 +23,10 @@
   const stage = document.getElementById('stage'), hud = document.getElementById('hud');
   const panel = document.createElement('div'); panel.id = 'l2hud'; panel.hidden = true;
   panel.innerHTML = '<div class="t">Ward 9</div><div class="hb"><i id="l2hp"></i></div>' +
+    '<div class="r"><span>Ward keys</span><b id="l2r">0 / 3</b></div>' +
+    '<div class="side">Side quest, optional: forge a blade</div>' +
     '<div class="r"><span>Scrap metal</span><b id="l2m">0 / 4</b></div><div class="r"><span>Wire</span><b id="l2w">0 / 3</b></div>' +
-    '<div class="r"><span>Blade</span><b id="l2k">not forged</b></div><div class="r"><span>Hearts cut</span><b id="l2r">0 / 3</b></div><div id="l2goal"></div>';
+    '<div class="r"><span>Blade</span><b id="l2k">not forged</b></div><div id="l2goal"></div>';
   hud.appendChild(panel);
   const boss = document.createElement('div'); boss.id = 'l2bossbar'; boss.hidden = true; boss.innerHTML = 'The Keeper<div><i id="l2bhp"></i></div>'; hud.appendChild(boss);
   const title = document.createElement('div'); title.id = 'l2title'; stage.appendChild(title);
@@ -39,7 +41,7 @@
     refs.m.textContent = Math.min(S.metal, 99) + ' / ' + NEED.metal; refs.m.className = S.metal >= NEED.metal ? 'ok' : '';
     refs.w.textContent = Math.min(S.wire, 99) + ' / ' + NEED.wire; refs.w.className = S.wire >= NEED.wire ? 'ok' : '';
     refs.k.textContent = S.knife ? 'forged' : (S.crafting ? 'forging...' : 'not forged'); refs.k.className = S.knife ? 'ok' : '';
-    refs.r.textContent = S.roots + ' / 3'; refs.r.className = S.roots >= 3 ? 'ok' : '';
+    refs.r.textContent = S.keys + ' / 3'; refs.r.className = S.keys >= 3 ? 'ok' : '';
     const B = L.boss, bv = B.st === 'hunt' || B.st === 'flay' || B.st === 'stagger';
     boss.hidden = !bv; if (bv) refs.bhp.style.width = clamp(B.hp / B.max * 100, 0, 100) + '%';
   };
@@ -128,12 +130,17 @@
       const best = L.pods.map((q) => ({ q: q, d: Math.hypot(q.x - p.x, q.z - p.z) })).filter((o) => o.d < 15).sort((a, b) => a.d - b.d).slice(0, 3);
       lights.forEach((o, i) => { const b = best[i]; if (b) { o.pod = b.q; o.l.position.set(b.q.x, b.q.y, b.q.z); o.l.color.setHex(b.q.color); } else o.pod = null; });
     }
-    const fl = L.boss.flicker > 0 ? (Math.random() < 0.5 ? 0.1 : 1) : 1;
-    for (const o of lights) {
+    const fl = L.boss.flicker > 0 ? (Math.random() < 0.5 ? 0.1 : 1) : 1, rb = !!(H.dread && H.dread.rb > 0.01);
+    lights.forEach((o, i) => {
       o.cur += ((o.pod ? 1 : 0) - o.cur) * Math.min(1, 4 * dt);
       o.l.intensity = o.cur * (1.5 + (o.pod ? Math.sin(L.t * 2 + o.pod.ph) * 0.35 : 0)) * H.bright * fl;
-    }
-    for (const q of L.pods) q.sprite.material.opacity = 0.45 + Math.sin(L.t * 2 + q.ph) * 0.18;
+      if (rb) { o.l.color.setHex(o.pod ? o.pod.color : 0xff2638); H.dread.rbColor(o.l.color, i); }
+    });
+    L.pods.forEach((q, i) => {
+      q.sprite.material.opacity = 0.45 + Math.sin(L.t * 2 + q.ph) * 0.18;
+      if (rb) { q.sprite.material.color.setHex(q.color); H.dread.rbColor(q.sprite.material.color, i); } else if (q.rbOn) q.sprite.material.color.setHex(q.color);
+      q.rbOn = rb;
+    });
     if (L.spores && L.sporeBase) {
       const pos = L.spores.geometry.attributes.position, b = L.sporeBase;
       for (let i = 0; i < pos.count; i++) {

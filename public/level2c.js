@@ -72,7 +72,7 @@
   B.summon = function (force) {
     if (B.st !== 'idle') return;
     B.st = 'chime'; B.chimeT = 0; B.chimes = 0; B.flicker = 5;
-    H.say(force ? 'The clock strikes. It is not finished with you.' : 'A clock chimes somewhere. Something heard the knife.', 4200);
+    H.say(force ? 'The clock strikes. It is not finished with you.' : 'A clock chimes somewhere. Something is awake.', 4200);
   };
   function manifest() {
     const s = L.farSpot(14) || L.farSpot(0);
